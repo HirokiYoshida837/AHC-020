@@ -491,12 +491,18 @@ namespace AHC020
 
             public class GreedySolver : ISolver
             {
+                // Greedyじゃないよねこれ
                 public Response Solve(Input input)
                 {
+                    // タイマー 1.8 秒
+                    var start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    var timeLimit = 1800L;
+
+
                     // root から幅優先探索で順に繋いでいく
 
                     // 全部0で初期化
-                    var response = new MySolver(3000).Solve(input);
+                    var response = new MySolver(5000).Solve(input);
                     response.bList = new int[input.m];
 
                     var maxScore = Utils.ComputeScore(input, response);
@@ -509,8 +515,8 @@ namespace AHC020
                     var dictionary = input.uvwList
                         .Select((item, i) => (item, i))
                         .GroupBy(x => (Math.Max(x.item.u, x.item.v), Math.Min(x.item.u, x.item.v)))
-                        .ToDictionary(x => x.Key, x => x.Select(x => x.i).First());
-                    // .ToDictionary(x => x.Key, x => x.OrderBy(x => x.item.w).ToArray());
+                        // .ToDictionary(x => x.Key, x => x.Select(x => x.i).First());
+                        .ToDictionary(x => x.Key, x => x.OrderBy(x => x.item.w).ToArray());
 
                     // var graph = new bool[input.n][];
 
@@ -519,12 +525,17 @@ namespace AHC020
                         .ToArray();
                     foreach (var kv in dictionary)
                     {
-                        graph[kv.Key.Item1][kv.Key.Item2] = kv.Value;
-                        graph[kv.Key.Item2][kv.Key.Item1] = kv.Value;
+                        graph[kv.Key.Item1][kv.Key.Item2] = kv.Value.First().i;
+                        graph[kv.Key.Item2][kv.Key.Item1] = kv.Value.First().i;
                     }
 
                     // BFSする
                     var bList = new int[input.m];
+
+                    var depthList = new int[input.n].Select(_ => -1).ToArray();
+                    depthList[0] = 0;
+
+                    response.plist[0] = 5000;
 
 
                     var queue = new Queue<int>();
@@ -535,8 +546,15 @@ namespace AHC020
                             uf.TryUnite(0, i);
                             bList[graph[0][i]] = 1;
                             queue.Enqueue(i);
+
+                            response.plist[i] = 2500;
+
+                            depthList[i] = 1;
                         }
                     }
+
+                    var powerList = new[] {2500, 3000, 4000, 5000}.OrderByDescending(x => x).ToArray();
+
 
                     var rng = new Random(0);
 
@@ -551,7 +569,6 @@ namespace AHC020
                                 continue;
                             }
 
-
                             if (graph[dequeue][i] != -1)
                             {
                                 // まだrootと繋がってないんだったら探索する
@@ -564,6 +581,12 @@ namespace AHC020
                                     bList[graph[dequeue][i]] = 1;
 
                                     response.bList = bList;
+
+                                    // foreach (var pow in powerList)
+                                    // {
+                                    //     var currentPow = response.plist[i];
+                                    //     response.plist[i] = pow;
+
                                     var newScore = Utils.ComputeScore(input, response);
 
                                     if (newScore > maxScore)
@@ -578,9 +601,8 @@ namespace AHC020
                                     {
                                         // スコア上がらなくても、確率で使う。
 
-                                        if (rng.NextDouble() > 0.9)
+                                        if (rng.NextDouble() > 0.8)
                                         {
-                                            // スコア上がってるんだったら更新
                                             maxScore = newScore;
 
                                             uf.TryUnite(dequeue, i);
@@ -591,20 +613,94 @@ namespace AHC020
                                             // スコア上がらないんだったら、戻して打ち切り。
                                             bList[graph[dequeue][i]] = 0;
                                             response.bList = bList;
+
+                                            // response.plist[i] = currentPow;
                                         }
                                     }
+                                    
+                                    response.AnswerWrite();
+                                    
+                                    // }
                                 }
                             }
                         }
                     }
 
-                    //
-                    // var response = new MySolver(3000).Solve(input);
-                    // response.bList = bList;
-                    //
-                    // var maxScore = Utils.ComputeScore(input, response);
+                    // startから1.8秒までの間、探索し続ける。
+                    while (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() < start + 1800)
+                    {
+                        var nextDouble = rng.NextDouble();
 
-                    // 基地局の出力を、中心から遠ざかるほど大きくしていく?
+                        // if (nextDouble < 0.5)
+                        // {
+                        var next = rng.Next(0, input.n);
+                        if (response.plist[next] > 0)
+                        {
+                            var last = response.plist[next];
+                            
+                            // 一旦 powerを10にして見てみる。
+                            response.plist[next] = 0;
+                            var computeScore1 = Utils.ComputeScore(input, response);
+                            if (computeScore1 > maxScore)
+                            {
+                                response.AnswerWrite();
+                                continue;
+                            }
+
+                            
+                            // powerを0.7倍にする。
+                            response.plist[next] = (last / 10) * 7;
+
+                            var computeScore2 = Utils.ComputeScore(input, response);
+
+                            if (computeScore2 > maxScore)
+                            {
+                                response.AnswerWrite();
+                                continue;
+                            }
+                            else
+                            {
+                                response.plist[next] = last;
+                            }
+                        }
+                        // }
+                        // else if (nextDouble < 0.6)
+                        // {
+                        //     // 辺を入れ替える
+                        //     var pivot = rng.Next(1,input.n);
+                        //
+                        //     if (response.plist[pivot] == 0)
+                        //     {
+                        //         // どこにも繋がってない基地局なのでスキップ
+                        //         continue;
+                        //     }
+                        //
+                        //     // 他に使える辺のリストはある？
+                        //     if (graph[pivot].Count(x=>x >=0 ) > 0)
+                        //     {
+                        //         for (var i = 0; i < graph[pivot].Length; i++)
+                        //         {
+                        //             
+                        //         }
+                        //     }
+                        // }
+                        // else
+                        // {
+                        //     // do nothing
+                        // }
+                    }
+
+                    var zeroRoot = uf.FindRoot(0);
+                    for (int i = 1; i < input.n; i++)
+                    {
+                        // 繋がってないノードの出力を全部0にする
+                        var findRoot = uf.FindRoot(i);
+
+                        if (findRoot != zeroRoot)
+                        {
+                            response.plist[i] = 0;
+                        }
+                    }
 
 
                     return response;
@@ -704,6 +800,8 @@ namespace AHC020
                         //     
                         // }
                     }
+                    
+                    response.AnswerWrite();
 
                     return response;
                 }

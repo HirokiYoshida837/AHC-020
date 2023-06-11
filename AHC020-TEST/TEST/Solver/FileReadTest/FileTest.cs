@@ -81,7 +81,7 @@ namespace AHC020_TEST.TEST.Solver.FileReadTest
         [Test]
         public void seed1_GreedySolver_TEST()
         {
-            var reading = File.ReadAllLines($@"Resources\Cases\1\seed1.txt");
+            var reading = File.ReadAllLines($@"Resources\Cases\1\seed0.txt");
             // checkInputFile(reading);
 
             var input = TestUtils.ReadFileToInput(reading);
