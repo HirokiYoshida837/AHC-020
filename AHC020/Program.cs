@@ -374,7 +374,6 @@ namespace AHC020
                         }
                     }
 
-
                     return new Response
                     {
                         plist = plist,
@@ -496,6 +495,13 @@ namespace AHC020
                 {
                     // root から幅優先探索で順に繋いでいく
 
+                    // 全部0で初期化
+                    var response = new MySolver(3000).Solve(input);
+                    response.bList = new int[input.m];
+
+                    var maxScore = Utils.ComputeScore(input, response);
+
+
                     var uf = new UnionFind(input.n + 1);
 
                     // 各放送局の無向グラフをつくる
@@ -504,22 +510,23 @@ namespace AHC020
                         .Select((item, i) => (item, i))
                         .GroupBy(x => (Math.Max(x.item.u, x.item.v), Math.Min(x.item.u, x.item.v)))
                         .ToDictionary(x => x.Key, x => x.Select(x => x.i).First());
-                        // .ToDictionary(x => x.Key, x => x.OrderBy(x => x.item.w).ToArray());
+                    // .ToDictionary(x => x.Key, x => x.OrderBy(x => x.item.w).ToArray());
 
                     // var graph = new bool[input.n][];
-                    
+
                     // 繋がってる辺の番号でメモ。
-                    var graph = Enumerable.Range(0, input.n).Select(_ => new int[input.n].Select(_=>-1).ToArray()).ToArray();
+                    var graph = Enumerable.Range(0, input.n).Select(_ => new int[input.n].Select(_ => -1).ToArray())
+                        .ToArray();
                     foreach (var kv in dictionary)
                     {
                         graph[kv.Key.Item1][kv.Key.Item2] = kv.Value;
                         graph[kv.Key.Item2][kv.Key.Item1] = kv.Value;
                     }
-                    
+
                     // BFSする
                     var bList = new int[input.m];
 
-                    
+
                     var queue = new Queue<int>();
                     for (var i = 0; i < graph[0].Length; i++)
                     {
@@ -530,7 +537,9 @@ namespace AHC020
                             queue.Enqueue(i);
                         }
                     }
-                    
+
+                    var rng = new Random(0);
+
                     while (queue.Count != 0)
                     {
                         var dequeue = queue.Dequeue();
@@ -541,8 +550,8 @@ namespace AHC020
                             {
                                 continue;
                             }
-                            
-                            
+
+
                             if (graph[dequeue][i] != -1)
                             {
                                 // まだrootと繋がってないんだったら探索する
@@ -551,17 +560,51 @@ namespace AHC020
 
                                 if (findRoot != root)
                                 {
+                                    // blistを1にしてみてスコアが上がるのであれば、くっつける意味ある。そうじゃなかったらやらなくていいかも。
                                     bList[graph[dequeue][i]] = 1;
-                                    uf.TryUnite(dequeue, i);
-                                    queue.Enqueue(i);
+
+                                    response.bList = bList;
+                                    var newScore = Utils.ComputeScore(input, response);
+
+                                    if (newScore > maxScore)
+                                    {
+                                        // スコア上がってるんだったら更新
+                                        maxScore = newScore;
+
+                                        uf.TryUnite(dequeue, i);
+                                        queue.Enqueue(i);
+                                    }
+                                    else
+                                    {
+                                        // スコア上がらなくても、確率で使う。
+
+                                        if (rng.NextDouble() > 0.9)
+                                        {
+                                            // スコア上がってるんだったら更新
+                                            maxScore = newScore;
+
+                                            uf.TryUnite(dequeue, i);
+                                            queue.Enqueue(i);
+                                        }
+                                        else
+                                        {
+                                            // スコア上がらないんだったら、戻して打ち切り。
+                                            bList[graph[dequeue][i]] = 0;
+                                            response.bList = bList;
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
+                    //
+                    // var response = new MySolver(3000).Solve(input);
+                    // response.bList = bList;
+                    //
+                    // var maxScore = Utils.ComputeScore(input, response);
 
-                    var response = new MySolver(3000).Solve(input);
-                    response.bList = bList;
+                    // 基地局の出力を、中心から遠ざかるほど大きくしていく?
 
 
                     return response;

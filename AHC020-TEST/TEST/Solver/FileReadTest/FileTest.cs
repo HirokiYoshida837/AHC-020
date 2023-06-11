@@ -109,7 +109,7 @@ namespace AHC020_TEST.TEST.Solver.FileReadTest
                 var reading = File.ReadAllLines($@"Resources\Cases\1\seed{i}.txt");
                 
                 var input = TestUtils.ReadFileToInput(reading);
-                var solvedRes = AHC020.Program.SolveProblem(input, new AHC020.Solver.Implementation.ClimbingSolver(100));
+                var solvedRes = AHC020.Program.SolveProblem(input, new AHC020.Solver.Implementation.GreedySolver());
                 
                 var computeScore = AHC020.Solver.Implementation.Utils.ComputeScore(input, solvedRes);
                 
