@@ -91,7 +91,8 @@ namespace AHC020
             // return new EditorialGreedySolver(10);
             // return new RandomSolver();
             // return new MySolver();
-            return new ClimbingSolver();
+            // return new ClimbingSolver();
+            return new GreedySolver();
         }
 
 
@@ -489,8 +490,85 @@ namespace AHC020
                 }
             }
 
+            public class GreedySolver : ISolver
+            {
+                public Response Solve(Input input)
+                {
+                    // root から幅優先探索で順に繋いでいく
 
-            // 貪欲してみる
+                    var uf = new UnionFind(input.n + 1);
+
+                    // 各放送局の無向グラフをつくる
+                    // 重複辺がある場合、片方はOFFにしていいはず。
+                    var dictionary = input.uvwList
+                        .Select((item, i) => (item, i))
+                        .GroupBy(x => (Math.Max(x.item.u, x.item.v), Math.Min(x.item.u, x.item.v)))
+                        .ToDictionary(x => x.Key, x => x.Select(x => x.i).First());
+                        // .ToDictionary(x => x.Key, x => x.OrderBy(x => x.item.w).ToArray());
+
+                    // var graph = new bool[input.n][];
+                    
+                    // 繋がってる辺の番号でメモ。
+                    var graph = Enumerable.Range(0, input.n).Select(_ => new int[input.n].Select(_=>-1).ToArray()).ToArray();
+                    foreach (var kv in dictionary)
+                    {
+                        graph[kv.Key.Item1][kv.Key.Item2] = kv.Value;
+                        graph[kv.Key.Item2][kv.Key.Item1] = kv.Value;
+                    }
+                    
+                    // BFSする
+                    var bList = new int[input.m];
+
+                    
+                    var queue = new Queue<int>();
+                    for (var i = 0; i < graph[0].Length; i++)
+                    {
+                        if (graph[0][i] != -1)
+                        {
+                            uf.TryUnite(0, i);
+                            bList[graph[0][i]] = 1;
+                            queue.Enqueue(i);
+                        }
+                    }
+                    
+                    while (queue.Count != 0)
+                    {
+                        var dequeue = queue.Dequeue();
+
+                        for (int i = 0; i < input.n; i++)
+                        {
+                            if (i == dequeue)
+                            {
+                                continue;
+                            }
+                            
+                            
+                            if (graph[dequeue][i] != -1)
+                            {
+                                // まだrootと繋がってないんだったら探索する
+                                var findRoot = uf.FindRoot(i);
+                                var root = uf.FindRoot(0);
+
+                                if (findRoot != root)
+                                {
+                                    bList[graph[dequeue][i]] = 1;
+                                    uf.TryUnite(dequeue, i);
+                                    queue.Enqueue(i);
+                                }
+                            }
+                        }
+                    }
+
+
+                    var response = new MySolver(3000).Solve(input);
+                    response.bList = bList;
+
+
+                    return response;
+                }
+            }
+
+
             public class ClimbingSolver : ISolver
             {
                 public int power;
@@ -508,23 +586,36 @@ namespace AHC020
                     var timeLimit = 1800L;
 
 
-                    var powList = new[]
-                    {
-                        (0, 1250),
-                        (0, 2500),
-                        (1250, 3750),
-                        (0, 5000),
-                        (1250, 5000)
-                    };
-
+                    // var powList = new[]
+                    // {
+                    //     (0, 1250),
+                    //     (0, 2500),
+                    //     (1250, 3750),
+                    //     (0, 5000),
+                    //     (1250, 5000)
+                    // };
+                    //
                     var maxScore = long.MinValue;
                     var response = new Response();
+                    //
+                    // // 一旦、ランダムに初期を決める
+                    // foreach (var (min, max) in powList)
+                    // {
+                    //     var current = new PowerAndSwitchRandomSolver(0, 1250).Solve(input);
+                    //
+                    //     var computeScore = Utils.ComputeScore(input, current);
+                    //
+                    //     if (computeScore >= maxScore)
+                    //     {
+                    //         response = current;
+                    //     }
+                    // }
 
-                    // 一旦、ランダムに初期を決める
-                    foreach (var (min, max) in powList)
+                    var powList = new[] {0, 1250, 2500, 3750, 5000};
+
+                    foreach (var p in powList)
                     {
-                        var current = new PowerAndSwitchRandomSolver(0, 1250).Solve(input);
-
+                        var current = new MySolver(p).Solve(input);
                         var computeScore = Utils.ComputeScore(input, current);
 
                         if (computeScore >= maxScore)

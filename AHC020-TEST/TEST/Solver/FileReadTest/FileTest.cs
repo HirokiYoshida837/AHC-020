@@ -78,6 +78,23 @@ namespace AHC020_TEST.TEST.Solver.FileReadTest
             
         }
         
+        [Test]
+        public void seed1_GreedySolver_TEST()
+        {
+            var reading = File.ReadAllLines($@"Resources\Cases\1\seed1.txt");
+            // checkInputFile(reading);
+
+            var input = TestUtils.ReadFileToInput(reading);
+            var solvedRes = AHC020.Program.SolveProblem(input, new AHC020.Solver.Implementation.GreedySolver());
+
+            solvedRes.AnswerWrite();
+            
+            var computeScore = AHC020.Solver.Implementation.Utils.ComputeScore(input, solvedRes);
+
+            Console.WriteLine(computeScore);
+            
+        }
+        
         
         
 
@@ -92,14 +109,23 @@ namespace AHC020_TEST.TEST.Solver.FileReadTest
                 var reading = File.ReadAllLines($@"Resources\Cases\1\seed{i}.txt");
                 
                 var input = TestUtils.ReadFileToInput(reading);
-                var solvedRes = AHC020.Program.SolveProblem(input, new AHC020.Solver.Implementation.MySolver(5000));
+                var solvedRes = AHC020.Program.SolveProblem(input, new AHC020.Solver.Implementation.ClimbingSolver(100));
                 
                 var computeScore = AHC020.Solver.Implementation.Utils.ComputeScore(input, solvedRes);
                 
                 scoreList.Add(computeScore);
             }
+            
+            for (var i = 0; i < scoreList.Count; i++)
+            {
+                var score = scoreList[i];
+                
+                Console.WriteLine($"case: {i} \t score: \t\t {score}");
+            }
+            
 
             Console.WriteLine($"### last score sum : {scoreList.Sum()} ###");
+            Console.WriteLine($"### last score sum : {scoreList.Average()} ###");
             
             
         }
