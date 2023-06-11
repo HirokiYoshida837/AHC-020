@@ -64,14 +64,11 @@ namespace AHC020
             // answer write
             ans.AnswerWrite();
 
-
-            var computeScore = Utils.ComputeScore(input, ans);
-
-            Console.WriteLine(computeScore);
-
-
             if (IS_DEBUG_ENABLED)
             {
+                var computeScore = Utils.ComputeScore(input, ans);
+                Console.WriteLine(computeScore);
+
                 // Console.WriteLine($"[DEBUG] ### Last Score : {solvedResult.lastScore} ### ");
             }
         }
@@ -92,7 +89,9 @@ namespace AHC020
         public static ISolver GetDefaultSolver()
         {
             // return new EditorialGreedySolver(10);
-            return new MySolver();
+            // return new RandomSolver();
+            // return new MySolver();
+            return new ClimbingSolver();
         }
 
 
@@ -221,7 +220,7 @@ namespace AHC020
                     else
                     {
                         var cost = CalculateCost(input, response);
-                        var score = (long) (1000000L * (1.0 + (100000000L / (cost + 10000000L))));
+                        var score = (long) (1000000L * (1.0d + (10L / (cost / 10000000d + 1L))));
 
                         return score;
                     }
@@ -319,7 +318,7 @@ namespace AHC020
                     }
 
 
-                    return 0;
+                    return cost;
                 }
 
                 public static long CalculatePowerCost(Response response, int index)
@@ -337,6 +336,8 @@ namespace AHC020
 
                     return dx * dx + dy * dy;
                 }
+
+                // 全部の基地局について、繋がってる
             }
 
 
@@ -358,11 +359,219 @@ namespace AHC020
                     var plist = Enumerable.Range(0, input.n).Select(_ => power).ToArray();
                     var bList = Enumerable.Range(0, input.m).Select(_ => 1).ToArray();
 
+                    // 重複辺がある場合、片方はOFFにしていいはず。
+                    var dictionary = input.uvwList
+                        .Select((item, i) => (item, i))
+                        .GroupBy(x => (Math.Max(x.item.u, x.item.v), Math.Min(x.item.u, x.item.v)))
+                        .ToDictionary(x => x.Key, x => x.Select(y => y.i).OrderBy(x => x).ToArray());
+
+                    foreach (var kv in dictionary.Where(x => x.Value.Count() > 1))
+                    {
+                        foreach (var i in kv.Value.Skip(1))
+                        {
+                            bList[i] = 0;
+                        }
+                    }
+
+
                     return new Response
                     {
                         plist = plist,
                         bList = bList
                     };
+                }
+            }
+
+            public class RandomSolver : ISolver
+            {
+                public int power;
+
+                public RandomSolver(int power = 5000)
+                {
+                    this.power = power;
+                }
+
+                public Response Solve(Input input)
+                {
+                    // power固定
+                    var plist = Enumerable.Range(0, input.n).Select(_ => power).ToArray();
+
+                    // スイッチON/OFFを適当にする
+                    var rng = new Random(0);
+                    var bList = new List<int>();
+                    for (int i = 0; i < input.m; i++)
+                    {
+                        if (rng.NextDouble() > 0.5)
+                        {
+                            bList.Add(0);
+                        }
+                        else
+                        {
+                            bList.Add(1);
+                        }
+                    }
+
+                    // 重複辺がある場合、片方はOFFにしていいはず。
+                    var dictionary = input.uvwList
+                        .Select((item, i) => (item, i))
+                        .GroupBy(x => (Math.Max(x.item.u, x.item.v), Math.Min(x.item.u, x.item.v)))
+                        .ToDictionary(x => x.Key, x => x.Select(y => y.i).OrderBy(x => x).ToArray());
+
+                    foreach (var kv in dictionary.Where(x => x.Value.Count() > 1))
+                    {
+                        foreach (var i in kv.Value.Skip(1))
+                        {
+                            bList[i] = 0;
+                        }
+                    }
+
+
+                    return new Response
+                    {
+                        plist = plist,
+                        bList = bList.ToArray()
+                    };
+                }
+            }
+
+            public class PowerAndSwitchRandomSolver : ISolver
+            {
+                public int powerMax;
+                public int powerMin;
+
+                public PowerAndSwitchRandomSolver(int powerMin = 2500, int powerMax = 5000)
+                {
+                    this.powerMax = powerMax;
+                    this.powerMin = powerMin;
+                }
+
+                public Response Solve(Input input)
+                {
+                    var rng = new Random(0);
+
+                    // powerもランダム
+                    var plist = Enumerable.Range(0, input.n).Select(_ => rng.Next(powerMin, powerMax)).ToArray();
+
+                    // スイッチON/OFFを適当にする
+                    var bList = new List<int>();
+                    for (int i = 0; i < input.m; i++)
+                    {
+                        if (rng.NextDouble() > 0.5)
+                        {
+                            bList.Add(0);
+                        }
+                        else
+                        {
+                            bList.Add(1);
+                        }
+                    }
+
+                    // 重複辺がある場合、片方はOFFにしていいはず。
+                    var dictionary = input.uvwList
+                        .Select((item, i) => (item, i))
+                        .GroupBy(x => (Math.Max(x.item.u, x.item.v), Math.Min(x.item.u, x.item.v)))
+                        .ToDictionary(x => x.Key, x => x.Select(y => y.i).OrderBy(x => x).ToArray());
+
+                    foreach (var kv in dictionary.Where(x => x.Value.Count() > 1))
+                    {
+                        foreach (var i in kv.Value.Skip(1))
+                        {
+                            bList[i] = 0;
+                        }
+                    }
+
+
+                    return new Response
+                    {
+                        plist = plist,
+                        bList = bList.ToArray()
+                    };
+                }
+            }
+
+
+            // 貪欲してみる
+            public class ClimbingSolver : ISolver
+            {
+                public int power;
+
+                // power 5000固定で一旦Greedy。
+                public ClimbingSolver(int power = 5000)
+                {
+                    this.power = power;
+                }
+
+                public Response Solve(Input input)
+                {
+                    // タイマー 1.8 秒
+                    var start = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                    var timeLimit = 1800L;
+
+
+                    var powList = new[]
+                    {
+                        (0, 1250),
+                        (0, 2500),
+                        (1250, 3750),
+                        (0, 5000),
+                        (1250, 5000)
+                    };
+
+                    var maxScore = long.MinValue;
+                    var response = new Response();
+
+                    // 一旦、ランダムに初期を決める
+                    foreach (var (min, max) in powList)
+                    {
+                        var current = new PowerAndSwitchRandomSolver(0, 1250).Solve(input);
+
+                        var computeScore = Utils.ComputeScore(input, current);
+
+                        if (computeScore >= maxScore)
+                        {
+                            response = current;
+                        }
+                    }
+
+
+                    // startから1.8秒までの間、探索し続ける。
+                    while (DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() < start + 1800)
+                    {
+                        // どこかの辺をOFFにしてスコアが下がるかどうかを確認
+
+                        var rng = new Random(0);
+
+                        // var nextDouble = rng.NextDouble();
+                        // if (nextDouble > 0.5)
+                        // {
+                        var d1 = rng.Next(0, response.bList.Length);
+
+                        var currentState = response.bList[d1];
+
+                        var newState = currentState == 1 ? 0 : 1;
+                        response.bList[d1] = newState;
+
+                        var newScore = Utils.ComputeScore(input, response);
+
+                        if (newScore >= maxScore)
+                        {
+                            maxScore = newScore;
+                        }
+                        else
+                        {
+                            // 戻す
+                            response.bList[d1] = currentState;
+                        }
+
+                        // }
+                        // else
+                        // {
+                        //     // do nothing
+                        //     
+                        // }
+                    }
+
+                    return response;
                 }
             }
         }
